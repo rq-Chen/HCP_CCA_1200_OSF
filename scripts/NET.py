@@ -9,7 +9,7 @@ import os
 import sys
 import pandas as pd
 
-netmat_fp = sys.argv[1] #path to the folder containing the input file (netmat2.txt)
+netmat_fp = sys.argv[1] #path to the input file (netmat2.txt)
 ICA = int(sys.argv[2]) #number of ICA components (ex. 200)
 num_subs = int(sys.argv[3])
 

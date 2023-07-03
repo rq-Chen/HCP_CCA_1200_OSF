@@ -16,7 +16,7 @@ addpath(genpath('./dependencies/'));
 % Read in data, set some variables, create confounds matrix
 VARS=readmatrix('../processed_data/VARS.txt');  % Subjects X SMs text file
 VARS(:,sum(isnan(VARS)==0)<130)=NaN;            % Pre-delete any variables in VARS that have lots of missing data (fewer than 130 subjects have measurements)
-NET=load('../processed_data/NET.txt');          % Load the Subjects X Nodes matrix (should be size 461x19900)
+NET=load('../processed_data/NET.txt');          % Load the Subjects X Nodes matrix (should be size 1003x19900)
 
 % Number of PCA and CCA components
 Nkeep=100;
@@ -109,7 +109,7 @@ for i=1:size(S3,2) % deconfound ignoring missing data
   S3(grot,i)=normalize(S3(grot,i)-grotconf*(pinv(grotconf)*S3(grot,i)));
 end
 
-% Next, we need to generate S4 (461x158 matrix)
+% Next, we need to generate S4 (1003x149 matrix)
 % First, estimate the SubjectsXSubjects covariance matrix (where for any two subjects, SMs missing for either subject are ignored)
 % The approximate covariance matrix (varsdCOV) is then projected onto the nearest valid covariance matrix using nearestSPD toolbox.
 % This method avoids imputation, and S4 can be fed into PCA.
@@ -184,7 +184,7 @@ grotBBd = corr(grotV(:,1),varsgrot,'rows','pairwise')'; % weights after deconfou
 % Color plot using fluid intelligence values for plot
 SMs=importdata('../data/column_headers.txt');  % Load in the column headers file (list of 478 SMs)
 index=find(contains(SMs,'PMAT24_A_CR'));    % Get column index of 'PMAT24_A_CR' (fluid intelligence), so we can find the correct column in S1
-g_f=S1(:,index);                            % g_f vector: fluid intelligence values for 461 subjects for the plot of CCA weights
+g_f=S1(:,index);                            % g_f vector: fluid intelligence values for 1003 subjects for the plot of CCA weights
 
 % Plot of CCA Weights (SMs) vs. CCA Weights (connectomes)
 figure;

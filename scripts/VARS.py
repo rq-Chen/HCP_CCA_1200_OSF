@@ -18,8 +18,8 @@ cwd = os.getcwd()
 
 
 column_headers_fp = "../data/column_headers.txt"
-behavioral_data_fp = "../processed_data/b500_m.csv"
-restricted_data_fp = "../processed_data/r500_m.csv"
+behavioral_data_fp = "../processed_data/b1200_m.csv"
+restricted_data_fp = "../processed_data/r1200_m.csv"
 subject_ids_fp = "../data/subject_list.txt"
 motion_data_fp = "../data/HCP1200-Motion-Summaries-rfMRI.csv"
 out_path = "../processed_data/"
@@ -33,7 +33,7 @@ out_path = "../processed_data/"
 
 # get the column headers, and names of subjects
 column_headers = [line.rstrip('\n') for line in open(column_headers_fp)]
-subjects = [line.rstrip('\n') for line in open(subject_ids_fp)]
+subjects = [int(line.rstrip('\n')) for line in open(subject_ids_fp)]
 
 # now import "behavioral" and "restricted" datasets into Pandas dataframes
 behavioral_data = pd.read_csv(behavioral_data_fp)

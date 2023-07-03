@@ -168,10 +168,10 @@ vision = {k.lower(): v for k, v in vision.items()}
 r1200['Color_Vision'] = r1200['Color_Vision'].map(arg=vision, na_action='ignore')
 
 ## STEP 4 - Save these new modified restricted and unrestricted files ##
-filename=out_path+'r500_m.csv'
+filename=out_path+'r1200_m.csv'
 out_fp=os.path.join(cwd,filename)
 r1200.to_csv(out_fp, index=False,na_rep='NaN')
 
-filename=out_path+'b500_m.csv'
+filename=out_path+'b1200_m.csv'
 out_fp=os.path.join(cwd,filename)
 b1200.to_csv(out_fp, index=False,na_rep='NaN')
