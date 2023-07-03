@@ -1,0 +1,10 @@
+# Ignore everything in this directory
+*
+# Except these files
+!.gitignore
+!scripts/
+!dependencies/
+!matlab_outputs/
+!data/
+!processed_data/
+!hcp_1200_cca_final.m
