@@ -145,7 +145,9 @@ nullNETr=[];
 nullSMr=[];
 nullNETv=[];
 nullSMv=[];
+tic
 for j=1:Nperm
+  fprintf('Permutation %d\n', j');
   [grotAr,grotBr,grotRp(j,1:end-1),grotUr,grotVr,grotstatsr]=canoncorr(N5,S5(PAPset(:,j),:));
   grotRp(j,end)=mean(grotRp(j,1:end-1));
   nullNETr=[nullNETr corr(grotUr(:,1),N0)'];
@@ -153,8 +155,9 @@ for j=1:Nperm
   nullNETv=[nullNETv sum(corr(grotUr,N0).^2,2)];
   nullSMv=[nullSMv sum(corr(grotVr,grotvars(PAPset(:,j),:),'rows','pairwise').^2,2)];
 end
+toc
 % figure; plot([mean(grotRp)' prctile(grotRp,95)' prctile(grotRp,99)' prctile(grotRp,99.9)' grotR'])   % final point is mean of all Nkeep R values
-for i=1:Nkeep;  % show corrected pvalues
+for i=1:Nkeep  % show corrected pvalues
   grotRpval(i)=(1+sum(grotRp(2:end,1)>=grotR(i)))/Nperm;
 end
 grotRpval
@@ -165,20 +168,20 @@ grotRpval(1:Ncca)
 prctile( max(abs(nullSMr)) ,95)
 prctile( max(abs(nullNETr)) ,95)
 
-%% Calculate CCA Mode 1 weights for netmats and SMs
-% Netmat weights for CCA mode 1
-grotAA = corr(grotU(:,1),N0)';
+%% Calculate all CCA Mode weights for netmats and SMs
+% Netmat weights for CCA modes
+grotAA = corr(grotU,N0)';
  % or
-grotAAd = corr(grotU(:,1),N4(:,1:size(N0,2)))'; % weights after deconfounding
+grotAAd = corr(grotU,N4(:,1:size(N0,2)))'; % weights after deconfounding
 
-%%% SM weights for CCA mode 1
-grotBB = corr(grotV(:,1),palm_inormal(S1),'rows','pairwise');
+%%% SM weights for CCA modes
+grotBB = corr(grotV,palm_inormal(S1),'rows','pairwise')';
  % or 
 varsgrot=palm_inormal(S1);
 for i=1:size(varsgrot,2)
   grot=(isnan(varsgrot(:,i))==0); grotconf=nets_demean(conf(grot,:)); varsgrot(grot,i)=nets_normalise(varsgrot(grot,i)-grotconf*(pinv(grotconf)*varsgrot(grot,i)));
 end
-grotBBd = corr(grotV(:,1),varsgrot,'rows','pairwise')'; % weights after deconfounding
+grotBBd = corr(grotV,varsgrot,'rows','pairwise')'; % weights after deconfounding
 
 %% Plot SMs vs. Connectome edges (canonical variables)
 % Color plot using fluid intelligence values for plot
@@ -189,7 +192,7 @@ g_f=S1(:,index);                            % g_f vector: fluid intelligence val
 % Plot of CCA Weights (SMs) vs. CCA Weights (connectomes)
 figure;
 g_f_n = palm_inormal(g_f);
-scatter(-1.*grotU(:,1),-1.*grotV(:,1),15, g_f_n,'filled') % NOTE: negated vectors are plotted
+scatter(grotU(:,1),grotV(:,1),15, g_f_n,'filled') % NOTE: negated vectors are plotted
 cmap=colormap(jet(20));               % 20 shades from the 'jet' colormap option
 cb=colorbar();
 cb.Ticks = [min(g_f_n),max(g_f_n)];   % min and max ticks for the colorbar taken from the fluid intelligence values (min 4, max 24)
