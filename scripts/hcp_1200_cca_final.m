@@ -1,3 +1,7 @@
+% Canonical correlation analysis between HCP 1200 subject measures and MINDy parameters
+%
+% Adapted by Ruiqi Chen, 2023/07/12
+%
 % HCP 1200 Computational Replication
 % Original Code by Stephen Smith, FMRIB Analysis Group, Oxford (https://www.fmrib.ox.ac.uk/datasets/HCP-CCA/)
 % Adapted by Nikhil Goyal, National Instite of Mental Health, 2019-2020
@@ -15,8 +19,22 @@ addpath(genpath('./dependencies/'));
 
 % Read in data, set some variables, create confounds matrix
 VARS=readmatrix('../processed_data/VARS.txt');  % Subjects X SMs text file
-VARS(:,sum(isnan(VARS)==0)<130)=NaN;            % Pre-delete any variables in VARS that have lots of missing data (fewer than 130 subjects have measurements)
-NET=load('../processed_data/NET.txt');          % Load the Subjects X Nodes matrix (should be size 1003x19900)
+VARS(:,sum(~isnan(VARS))<130)=NaN;            % Pre-delete any variables in VARS that have lots of missing data (fewer than 130 subjects have measurements)
+
+% Get MINDy parameters
+mindy = load('/data/nil-external/ccp/chenr/MINDy_Analysis/data/HCP_Mdl100.mat', 'allMdl', 'sublist');
+mindy.subs = int32(str2double(extractBetween(mindy.sublist, 'sub', 'Y')));
+load('/data/nil-external/ccp/chenr/MINDy_Analysis/data/atlas/Wmask_RC.mat', 'Wmask');  % Mask for MINDy connectomes
+NET = cellfun(@(x) [x.Param{5}(Wmask); x.Param{6}; x.Param{2}]', mindy.allMdl, 'UniformOutput', false);
+NET = cell2mat(NET);  % Models from the same subject are concatenated
+NET = normalize(NET); % Normalize the parameters since they have very different scales
+
+% Get subjects with both VARS and MINDy
+[~, ia, ib] = intersect(VARS(:,1), mindy.subs);
+VARS = VARS(ia, :);
+NET = NET(ib, :);
+
+clear mindy ia ib
 
 % Number of PCA and CCA components
 Nkeep=100;
@@ -50,11 +68,8 @@ fprintf("Calculating netmat matrices N1 through N5\n")
 % N1, formed by 1. demean, 2. globally variance normalize
 N1=nets_demean(N0);   % 1. Demean
 N1=N1/std(N1(:));     % 2. variance normalize
-% N2, formed by 1. Demean, 2. remove columns that are badly conditions due to low z (z<0.1) mean value, 3. global variance normalize the matrix
-abs_mean_NET=abs(mean(N0));                             % get mean, take abs val
-N2=nets_demean(N0./repmat(abs_mean_NET,size(N0,1),1));  % 1. demean
-N2(:,abs_mean_NET<0.1)=[];                              % 2. remove columns with mean value <0.1                          
-N2=N2/std(N2(:));                                       % 3. variance normalize
+% We remove the N2 part since our MINDy parameters have to be and have been normalized column-wise
+N2 = [];
 % N3, formed by horizontally concat N1 and N2
 N3=[N1 N2]; % Concat horizontally
 % N4, formed by regressing the confounds matrix out of N3
@@ -75,23 +90,22 @@ for i=1:size(S1,2)                          % Iterate over the SMs of S1 (i.e. t
   measure_present=~isnan(Xs);                 % How many are elements present? >250 needed (this is a vector where 1=present for a subject)
   Ys=(Xs(measure_present)-median(Xs(measure_present))).^2;  % Of the values present, calculate vector Ys = (Xs -median(Xs))^2, extreme outlier if max(Ys) > 100*mean(Ys) (or max(Ys/mean(Ys)) > 100 is extreme)
   ratio=max(Ys/mean(Ys));
-  if (sum(measure_present)>250) & (std(Xs(measure_present))>0) & (max(sum(nets_class_vectomat(Xs(measure_present))))/length(Xs(measure_present))<0.95) & (ratio<100)
+  if (sum(measure_present)>250) && (std(Xs(measure_present))>0) && (max(sum(nets_class_vectomat(Xs(measure_present))))/length(Xs(measure_present))<0.95) && (ratio<100)
       % First criteria: >250 values?
       % Second criteria: std dev of the values > 0?
       % Third criteria: is the size of largest equal-values-group too large? (i.e. > 95% of subjects)
       % Fourth criteria: is there an extreme value?
       % if (1 & 2 & 3 & 4)=True, then keep the SM
-    i=i; % do nothing
+    continue; % do nothing
   else
     % A criteria for drop is met, so add the SM to badvars (i = index of the column for an SM)
-    [i sum(measure_present) std(Xs(measure_present)) max(sum(nets_class_vectomat(Xs(measure_present))))/length(Xs(measure_present)) ratio];
     badvars=[badvars i];
   end
 end
 
 % Get list of the SMs we want to feed into the CCA.
 % Found by comparing a list of 1,2,3...478 w/ the indices of the SMs to drop (using setdiff()) to get the indices of SMs to keep
-varskeep=setdiff([1:size(S1,2)],[1 6 267:457 ...                              % SMs we generally ignore (ID, race, FreeSurfer)
+varskeep=setdiff(1:size(S1,2),[1 6 267:457 ...                              % SMs we generally ignore (ID, race, FreeSurfer)
  2 7 14 15 22 23 25 265 266  ...                                              % confound SMs
  11 12 13 17 19 27 29 31 34 40 204 205 212:223 229:233 236 238 242 477 ...    % some more SMs to ignore for the CCA
  3 4 5 8 9 10 16 18 20 21 24 26 28 30 32 33 35:39 458 459 460 463 464 ...     % some more SMs to ignore for the CCA
@@ -104,7 +118,7 @@ S2=palm_inormal(S1(:,varskeep)); % Gaussianise
 % Now generate S3 (aka varsd), formed by deconfounding the 17 confounds out of S2
 S3=S2;
 for i=1:size(S3,2) % deconfound ignoring missing data
-  grot=(isnan(S3(:,i))==0);
+  grot=(~isnan(S3(:,i)));
   grotconf=nets_demean(conf(grot,:));
   S3(grot,i)=normalize(S3(grot,i)-grotconf*(pinv(grotconf)*S3(grot,i)));
 end
@@ -136,27 +150,28 @@ fprintf("Permutation testing - this may take a while, please be patient\n")
 % Use a temporary version of S1 for the null testing
 grotvars=palm_inormal(S1);
 grotvars(:,std(grotvars)<1e-10)=[];
-grotvars(:,sum(isnan(grotvars)==0)<20)=[];
+grotvars(:,sum(~isnan(grotvars))<20)=[];
 
 % permutation testing
 grotRp=zeros(Nperm,Nkeep+1);
 clear grotRpval;
-nullNETr=[];
-nullSMr=[];
-nullNETv=[];
-nullSMv=[];
+nullNETr = nan(size(N0, 2), Nperm);
+nullSMr = nan(size(grotvars, 2), Nperm);
+nullNETv = nan(size(grotU, 2), Nperm);
+nullSMv = nan(size(grotV, 2), Nperm);
 tic
 for j=1:Nperm
   fprintf('Permutation %d\n', j');
   [grotAr,grotBr,grotRp(j,1:end-1),grotUr,grotVr,grotstatsr]=canoncorr(N5,S5(PAPset(:,j),:));
   grotRp(j,end)=mean(grotRp(j,1:end-1));
-  nullNETr=[nullNETr corr(grotUr(:,1),N0)'];
-  nullSMr=[nullSMr corr(grotVr(:,1),grotvars(PAPset(:,j),:),'rows','pairwise')'];
-  nullNETv=[nullNETv sum(corr(grotUr,N0).^2,2)];
-  nullSMv=[nullSMv sum(corr(grotVr,grotvars(PAPset(:,j),:),'rows','pairwise').^2,2)];
+  nullNETr(:, j) = corr(grotUr(:,1),N0)';
+  nullSMr(:, j) = corr(grotVr(:,1),grotvars(PAPset(:,j),:),'rows','pairwise')';
+  nullNETv(:, j) = sum(corr(grotUr,N0).^2,2);
+  nullSMv(:, j) = sum(corr(grotVr,grotvars(PAPset(:,j),:),'rows','pairwise').^2,2);
 end
 toc
 % figure; plot([mean(grotRp)' prctile(grotRp,95)' prctile(grotRp,99)' prctile(grotRp,99.9)' grotR'])   % final point is mean of all Nkeep R values
+grotRpval=zeros(1,Nkeep);
 for i=1:Nkeep  % show corrected pvalues
   grotRpval(i)=(1+sum(grotRp(2:end,1)>=grotR(i)))/Nperm;
 end
@@ -179,7 +194,7 @@ grotBB = corr(grotV,palm_inormal(S1),'rows','pairwise')';
  % or 
 varsgrot=palm_inormal(S1);
 for i=1:size(varsgrot,2)
-  grot=(isnan(varsgrot(:,i))==0); grotconf=nets_demean(conf(grot,:)); varsgrot(grot,i)=nets_normalise(varsgrot(grot,i)-grotconf*(pinv(grotconf)*varsgrot(grot,i)));
+  grot=(~isnan(varsgrot(:,i))); grotconf=nets_demean(conf(grot,:)); varsgrot(grot,i)=nets_normalise(varsgrot(grot,i)-grotconf*(pinv(grotconf)*varsgrot(grot,i)));
 end
 grotBBd = corr(grotV,varsgrot,'rows','pairwise')'; % weights after deconfounding
 
@@ -218,12 +233,16 @@ bottom = (papersize(2)- height)/2;
 myfiguresize = [left, bottom, width, height];
 set(gcf,'PaperPosition', myfiguresize);
 
-print('-dpdf',sprintf('../matlab_outputs/SMs_vs_edges.pdf'));
-saveas(gcf, "../matlab_outputs/SMs_vs_edges.png");
+print('-dpdf',sprintf('../matlab_outputs/MINDy/SMs_vs_edges.pdf'));
+saveas(gcf, "../matlab_outputs/MINDy/SMs_vs_edges.png");
 
 figure
-plotregression(grotU(:,1),grotV(:,1))
-saveas(gcf, "../matlab_outputs/regression.png")
+scatter(grotU(:,1),grotV(:,1))
+xlabel('CCA scores (connectomes)');
+ylabel('CCA scores (subject measures)');
+lsline();
+title(sprintf('Correlation = %.2f', corr(grotU(:,1),grotV(:,1))));
+saveas(gcf, "../matlab_outputs/MINDy/regression.png")
 
 %% Variance analyses - how much of the total percent variance do the first 20 CCA modes explain?
 grot_NET=[ sum(corr(grotU,N0).^2,2) prctile(nullNETv,5,2) mean(nullNETv,2) prctile(nullNETv,95,2) sum(corr(N5,N0).^2,2) ] * 100 / size(N0,2);
@@ -244,8 +263,8 @@ plot(grot_NET(I,3),'k'); plot(grot_NET(I,1),'b'); plot(grot_NET(I,1),'b.'); % pl
 ylabel('%% variance (connectomes)')
 xlabel('CCA Mode')
 xlim([1 20])
-ylim([0.3 0.55])
-yticks([0.3 0.35 0.4 0.45 0.5 0.55])
+ylim([0.3 0.9])
+% yticks([0.3 0.35 0.4 0.45 0.5 0.55])
 set(gca,'FontSize',15)
 
 % Subject measures variance
@@ -273,8 +292,8 @@ left = (papersize(1)- width)/2;
 bottom = (papersize(2)- height)/2;
 myfiguresize = [left, bottom, width, height];
 set(gcf,'PaperPosition', myfiguresize);
-print('-dpdf',sprintf('../matlab_outputs/CCAvarianceexplained.pdf'));
-saveas(gcf, "../matlab_outputs/CCAvarianceexplained.png");
+print('-dpdf',sprintf('../matlab_outputs/MINDy/CCAvarianceexplained.pdf'));
+saveas(gcf, "../matlab_outputs/MINDy/CCAvarianceexplained.png");
 
 
 %% Output important results to file and terminal
@@ -287,7 +306,7 @@ reg_coef = corrcoef(grotU(:,1),grotV(:,1));
 reg_coef = norm(reg_coef(1,2));
 
 % Print to file
-id=fopen('../matlab_outputs/results.txt','a'); % append if file exists
+id=fopen('../matlab_outputs/MINDy/results.txt','a'); % append if file exists
 str=string(datetime('now','Format','yyyy-MM-dd''_T''HH-mm-ss')); %datetime format ex. "2020-02-11_T11-21-16"
 fprintf(id,'------ HCP1200 CCA Ran at %s ------\n',str)
 fprintf(id,'Number of permutations: %d\n', Nperm)
@@ -307,5 +326,5 @@ fclose(id);
 
 %% Save workspace
 str=string(datetime('now','Format','yyyy-MM-dd''_T''HH-mm-ss')); %datetime format ex. "2020-02-11_T11-21-16"
-fname = "../matlab_outputs/hcp_1200_cca_"+str;
+fname = "../matlab_outputs/MINDy/hcp_1200_cca_MINDy_"+str;
 save(fname)
