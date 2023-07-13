@@ -2,6 +2,8 @@
 %
 % Adapted by Ruiqi Chen, 2023/07/12
 %
+% Instead of functional connectivity, we use the nonzero entries of MINDy W matrix, decay, and curvature.
+%
 % HCP 1200 Computational Replication
 % Original Code by Stephen Smith, FMRIB Analysis Group, Oxford (https://www.fmrib.ox.ac.uk/datasets/HCP-CCA/)
 % Adapted by Nikhil Goyal, National Instite of Mental Health, 2019-2020
@@ -25,7 +27,7 @@ VARS(:,sum(~isnan(VARS))<130)=NaN;            % Pre-delete any variables in VARS
 mindy = load('/data/nil-external/ccp/chenr/MINDy_Analysis/data/HCP_Mdl100.mat', 'allMdl', 'sublist');
 mindy.subs = int32(str2double(extractBetween(mindy.sublist, 'sub', 'Y')));
 load('/data/nil-external/ccp/chenr/MINDy_Analysis/data/atlas/Wmask_RC.mat', 'Wmask');  % Mask for MINDy connectomes
-NET = cellfun(@(x) [x.Param{5}(Wmask); x.Param{6}; x.Param{2}]', mindy.allMdl, 'UniformOutput', false);
+NET = cellfun(@(x) [x.Param{5}(Wmask); x.Param{6}; x.Param{2}]', mindy.allMdl, 'UniformOutput', false);  % Nonzero entries of W; Decay; Curvature
 NET = cell2mat(NET);  % Models from the same subject are concatenated
 NET = normalize(NET); % Normalize the parameters since they have very different scales
 
