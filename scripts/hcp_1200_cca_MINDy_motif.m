@@ -17,7 +17,7 @@
 % Input and Output
 nParcels = 200;
 indir = '/data/nil-external/ccp/chenr/MINDy_Analysis/data/';
-outdir = fullfile('..', 'matlab_outputs', ['MINDy' num2str(nParcels)]);
+outdir = fullfile('..', 'matlab_outputs', ['MINDy' num2str(nParcels) 'motifs']);
 if ~exist(outdir, 'dir')
   mkdir(outdir)
 end
@@ -29,24 +29,21 @@ addpath(genpath('./dependencies/'));
 VARS=readmatrix('../processed_data/VARS.txt');  % Subjects X SMs text file
 VARS(:,sum(~isnan(VARS))<130)=NaN;            % Pre-delete any variables in VARS that have lots of missing data (fewer than 130 subjects have measurements)
 
-% Get MINDy parameters
-mindy = load(fullfile(indir, ['HCP_Mdl' num2str(nParcels) '.mat']), 'allMdl', 'sublist');
-mindy.subs = int32(str2double(extractBetween(mindy.sublist, 'sub', 'Y')));
-if nParcels == 100
-  load(fullfile(indir, 'atlas', 'Wmask_RC.mat'), 'Wmask');  % Mask for MINDy connectomes
-else
-  Wmask = ones(nParcels);
-end
-NET = cellfun(@(x) [x.Param{5}(Wmask(:)); x.Param{6}; x.Param{2}]', mindy.allMdl, 'UniformOutput', false);
-NET = cell2mat(NET);  % Models from the same subject are concatenated
-NET = normalize(NET); % Normalize the parameters since they have very different scales
+% Get MINDy motifs
+tmp = load(fullfile(indir, ['HCP_Mdl' num2str(nParcels) '.mat']), 'sublist');
+mindy.subs = int32(str2double(extractBetween(tmp.sublist, 'sub', 'Y')));
+tmp = load(fullfile(indir, ['HCP_motifs' num2str(nParcels) '.mat']), 'motifs');
+% NET = reshape(tmp.motifs, [], size(tmp.motifs, 3))';  % (nMINDySubs, nParcels * K)
+NET = squeeze(tmp.motifs(:, 1, :))';  % (nMINDySubs, nParcels)
+NET = NET / std(NET(:));  % Globally normalize the variance
+
 
 % Get subjects with both VARS and MINDy
 [~, ia, ib] = intersect(VARS(:,1), mindy.subs);
 VARS = VARS(ia, :);
 NET = NET(ib, :);
 
-clear mindy ia ib
+clear mindy ia ib tmp
 
 % Number of PCA and CCA components
 Nkeep=100;
@@ -80,8 +77,11 @@ fprintf("Calculating netmat matrices N1 through N5\n")
 % N1, formed by 1. demean, 2. globally variance normalize
 N1=nets_demean(N0);   % 1. Demean
 N1=N1/std(N1(:));     % 2. variance normalize
-% We remove the N2 part since our MINDy parameters have to be and have been normalized column-wise
-N2 = [];
+% N2, formed by 1. Demean, 2. remove columns that are badly conditions due to low z (z<0.1) mean value, 3. global variance normalize the matrix
+abs_mean_NET=abs(mean(N0));                             % get mean, take abs val
+N2=nets_demean(N0./repmat(abs_mean_NET,size(N0,1),1));  % 1. demean
+N2(:,abs_mean_NET<0.1)=[];                              % 2. remove columns with mean value <0.1                          
+N2=N2/std(N2(:));                                       % 3. variance normalize
 % N3, formed by horizontally concat N1 and N2
 N3=[N1 N2]; % Concat horizontally
 % N4, formed by regressing the confounds matrix out of N3
@@ -277,7 +277,7 @@ xlabel('CCA Mode')
 xlim([1 20])
 % ylim([0.3 0.9])
 % yticks([0.3 0.35 0.4 0.45 0.5 0.55])
-set(gca,'FontSize',15)
+set(gca,'FontSize',11)
 
 % Subject measures variance
 subplot(2,1,2); 
@@ -292,7 +292,7 @@ xlabel('CCA Mode')
 xlim([1 20])
 % ylim([0 2])
 % yticks([0 0.5 1 1.5 2])
-set(gca,'FontSize',15)
+set(gca,'FontSize',11)
 
 % Here we preserve the size of the image and save it (pdf and png)
 set(gcf,'InvertHardcopy','on');
