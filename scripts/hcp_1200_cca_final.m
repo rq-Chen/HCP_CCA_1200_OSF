@@ -2,6 +2,8 @@
 %
 % Adapted by Ruiqi Chen, 2023/07/12
 %
+% Instead of functional connectivity, we use the nonzero entries of MINDy W matrix, decay, and curvature.
+%
 % HCP 1200 Computational Replication
 % Original Code by Stephen Smith, FMRIB Analysis Group, Oxford (https://www.fmrib.ox.ac.uk/datasets/HCP-CCA/)
 % Adapted by Nikhil Goyal, National Instite of Mental Health, 2019-2020
