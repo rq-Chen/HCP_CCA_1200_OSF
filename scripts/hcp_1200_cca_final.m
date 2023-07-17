@@ -37,7 +37,7 @@ mindy.subs = int32(str2double(extractBetween(mindy.sublist, 'sub', 'Y')));
 if nParcels == 100
   load(fullfile(indir, 'atlas', 'Wmask_RC.mat'), 'Wmask');  % Mask for MINDy connectomes
 else
-  Wmask = ones(nParcels);
+  Wmask = true(nParcels);
 end
 NET = cellfun(@(x) [x.Param{5}(Wmask(:)); x.Param{6}; x.Param{2}]', mindy.allMdl, 'UniformOutput', false);
 NET = cell2mat(NET);  % Models from the same subject are concatenated
