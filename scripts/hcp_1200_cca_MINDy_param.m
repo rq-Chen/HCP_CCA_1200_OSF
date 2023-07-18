@@ -17,9 +17,22 @@
 % PLEASE NOTE THAT YOU MUST RUN THIS CODE FROM THE /HCP1200/scripts folder!
 
 % Input and Output
-nParcels = 200;
-Wonly = true; % If true, only use MINDy W matrix
-if Wonly; outdir_suffix = '_W'; else; outdir_suffix = ''; end
+nParcels = 100;
+UseMINDyW = true;
+UseMINDyDA = false;
+if UseMINDyW
+  if UseMINDyDA
+    outdir_suffix = '';
+  else
+    outdir_suffix = '_W';
+  end
+else
+  if UseMINDyDA
+    outdir_suffix = '_DA';
+  else
+    error('No MINDy parameter specified!')
+  end
+end
 indir = '/data/nil-external/ccp/chenr/MINDy_Analysis/data/';
 outdir = fullfile('..', 'matlab_outputs', ['MINDy' num2str(nParcels) outdir_suffix]);
 if ~exist(outdir, 'dir')
@@ -41,11 +54,20 @@ if nParcels == 100
 else
   Wmask = true(nParcels);
 end
-if Wonly
-  NET = cellfun(@(x) x.Param{5}(Wmask(:))', mindy.allMdl, 'UniformOutput', false);
+if UseMINDyW
+  if UseMINDyDA
+    fMINDyParam = @(x) [x.Param{5}(Wmask(:)); x.Param{6}; x.Param{2}]';
+  else
+    fMINDyParam = @(x) x.Param{5}(Wmask(:))';
+  end
 else
-  NET = cellfun(@(x) [x.Param{5}(Wmask(:)); x.Param{6}; x.Param{2}]', mindy.allMdl, 'UniformOutput', false);
+  if UseMINDyDA
+    fMINDyParam = @(x) [x.Param{6}; x.Param{2}]';
+  else
+    error('No MINDy parameter specified!')
+  end
 end
+NET = cellfun(fMINDyParam, mindy.allMdl, 'UniformOutput', false);
 NET = cell2mat(NET);  % Models from the same subject are concatenated
 NET = normalize(NET); % Normalize the parameters since they have very different scales
 
