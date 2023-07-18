@@ -18,8 +18,10 @@
 
 % Input and Output
 nParcels = 200;
+Wonly = true; % If true, only use MINDy W matrix
+if Wonly; outdir_suffix = '_W'; else; outdir_suffix = ''; end
 indir = '/data/nil-external/ccp/chenr/MINDy_Analysis/data/';
-outdir = fullfile('..', 'matlab_outputs', ['MINDy' num2str(nParcels)]);
+outdir = fullfile('..', 'matlab_outputs', ['MINDy' num2str(nParcels) outdir_suffix]);
 if ~exist(outdir, 'dir')
   mkdir(outdir)
 end
@@ -39,7 +41,11 @@ if nParcels == 100
 else
   Wmask = true(nParcels);
 end
-NET = cellfun(@(x) [x.Param{5}(Wmask(:)); x.Param{6}; x.Param{2}]', mindy.allMdl, 'UniformOutput', false);
+if Wonly
+  NET = cellfun(@(x) x.Param{5}(Wmask(:))', mindy.allMdl, 'UniformOutput', false);
+else
+  NET = cellfun(@(x) [x.Param{5}(Wmask(:)); x.Param{6}; x.Param{2}]', mindy.allMdl, 'UniformOutput', false);
+end
 NET = cell2mat(NET);  % Models from the same subject are concatenated
 NET = normalize(NET); % Normalize the parameters since they have very different scales
 

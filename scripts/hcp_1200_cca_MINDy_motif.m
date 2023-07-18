@@ -15,7 +15,7 @@
 % PLEASE NOTE THAT YOU MUST RUN THIS CODE FROM THE /HCP1200/scripts folder!
 
 % Input and Output
-nParcels = 200;
+nParcels = 100;
 indir = '/data/nil-external/ccp/chenr/MINDy_Analysis/data/';
 outdir = fullfile('..', 'matlab_outputs', ['MINDy' num2str(nParcels) 'motifs']);
 if ~exist(outdir, 'dir')
