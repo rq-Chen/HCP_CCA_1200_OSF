@@ -16,8 +16,9 @@
 
 % Input and Output
 mtfFileName = 'subjMotifs_HCP_Rest_FIX_Simple_Mdl200_all';
+mtfIdx = 3;  % Motif index to use
 indir = '/data/nil-external/ccp/chenr/MINDy_Analysis/data/';
-outdir = fullfile('..', 'matlab_outputs', mtfFileName);
+outdir = fullfile('..', 'matlab_outputs', [mtfFileName '_motif' num2str(mtfIdx)]);
 if ~exist(outdir, 'dir')
   mkdir(outdir)
 end
@@ -32,7 +33,7 @@ VARS(:,sum(~isnan(VARS))<130)=NaN;            % Pre-delete any variables in VARS
 % Get MINDy motifs
 tmp = load(fullfile(indir, [mtfFileName '.mat']), 'sublist', 'subjMotifs');
 tmp.sublist = int32(str2double(tmp.sublist));
-NET = squeeze(tmp.subjMotifs(:, 1, :));  % (nParcels, nMINDySubs)
+NET = squeeze(tmp.subjMotifs(:, mtfIdx, :));  % (nParcels, nMINDySubs)
 idx = any(isnan(NET));
 tmp.sublist(idx) = [];
 NET(:, idx) = [];
@@ -163,7 +164,7 @@ fprintf("Running CCA on matrices S5 and N5\n")
 fprintf("Permutation testing - this may take a while, please be patient\n")
 % Use a temporary version of S1 for the null testing
 grotvars=palm_inormal(S1);
-grotvars(:,std(grotvars)<1e-10)=[];
+grotvars(:,std(grotvars,"omitnan")<1e-10)=[];
 grotvars(:,sum(~isnan(grotvars))<20)=[];
 
 % permutation testing
