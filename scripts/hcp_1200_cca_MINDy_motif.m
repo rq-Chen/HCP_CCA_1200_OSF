@@ -12,12 +12,12 @@
 % PALM        http://fsl.fmrib.ox.ac.uk/fsl/fslwiki/PALM
 % nearestSPD  http://www.mathworks.com/matlabcentral/fileexchange/42885-nearestspd
 
-% PLEASE NOTE THAT YOU MUST RUN THIS CODE FROM THE /HCP1200/scripts folder!
+% PLEASE NOTE THAT YOU MUST RUN THIS CODE FROM THE "scripts" folder!
 
 % Input and Output
-nParcels = 100;
+mtfFileName = 'subjMotifs_HCP_Rest_FIX_Simple_Mdl200_all';
 indir = '/data/nil-external/ccp/chenr/MINDy_Analysis/data/';
-outdir = fullfile('..', 'matlab_outputs', ['MINDy' num2str(nParcels) 'motifs']);
+outdir = fullfile('..', 'matlab_outputs', mtfFileName);
 if ~exist(outdir, 'dir')
   mkdir(outdir)
 end
@@ -30,25 +30,27 @@ VARS=readmatrix('../processed_data/VARS.txt');  % Subjects X SMs text file
 VARS(:,sum(~isnan(VARS))<130)=NaN;            % Pre-delete any variables in VARS that have lots of missing data (fewer than 130 subjects have measurements)
 
 % Get MINDy motifs
-tmp = load(fullfile(indir, ['HCP_Mdl' num2str(nParcels) '.mat']), 'sublist');
-mindy.subs = int32(str2double(extractBetween(tmp.sublist, 'sub', 'Y')));
-tmp = load(fullfile(indir, ['HCP_motifs' num2str(nParcels) '.mat']), 'motifs');
-% NET = reshape(tmp.motifs, [], size(tmp.motifs, 3))';  % (nMINDySubs, nParcels * K)
-NET = squeeze(tmp.motifs(:, 1, :))';  % (nMINDySubs, nParcels)
+tmp = load(fullfile(indir, [mtfFileName '.mat']), 'sublist', 'subjMotifs');
+tmp.sublist = int32(str2double(tmp.sublist));
+NET = squeeze(tmp.subjMotifs(:, 1, :));  % (nParcels, nMINDySubs)
+idx = any(isnan(NET));
+tmp.sublist(idx) = [];
+NET(:, idx) = [];
+NET = NET';  % (nMINDySubs, nParcels)
 NET = NET / std(NET(:));  % Globally normalize the variance
 
 
 % Get subjects with both VARS and MINDy
-[~, ia, ib] = intersect(VARS(:,1), mindy.subs);
+[~, ia, ib] = intersect(VARS(:,1), tmp.sublist);
 VARS = VARS(ia, :);
 NET = NET(ib, :);
 
-clear mindy ia ib tmp
+clear idx ia ib tmp
 
 % Number of PCA and CCA components
 Nkeep=100;
 % Number of permutations
-Nperm=10000;
+Nperm=1000;
 
 % Set up confounds matrix (this is based on variables selected by Smith et al. in the original study). Confounds are demeaned, any missing data is set to 0
 conf=palm_inormal([ VARS(:,[7 14 15 22 23 25]) VARS(:,[265 266]).^(1/3) ]);   % Gaussianise
